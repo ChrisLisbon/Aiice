@@ -2,18 +2,18 @@ from torchcnnbuilder.models import ForecasterBase
 from torch import nn
 from typing import Union, List
 
-class CustomUnet(nn.Module):
+class CustomEncoderDecoder(nn.Module):
     def __init__(self, num_layers:int, channels_in: int, channels_out: int, image_size:Union[List[int], int]) -> None:
         """
-        A custom U-Net-like model for image forecasting, built upon `ForecasterBase`.
+        A custom Encoder-Decoder model for image forecasting, built upon `ForecasterBase`.
 
         This class wraps the `ForecasterBase` model from `torchcnnbuilder` to provide
-        a convenient interface for constructing a U-Net-like architecture tailored
+        a convenient interface for constructing a Encoder - Decoder architecture tailored
         for forecasting tasks. It handles the initial setup of the image size
         and delegates the core model logic to `ForecasterBase`.
 
         Args:
-            num_layers (int): The number of layers (depth) for the U-Net-like architecture.
+            num_layers (int): The number of layers (depth) for the Encoder-Decoder architecture.
                             This parameter is passed directly to `ForecasterBase`.
             channels_in (int): The number of input channels (channels are the smallest uni). This corresponds
                             to `in_time_points` in `ForecasterBase`.
@@ -34,7 +34,7 @@ class CustomUnet(nn.Module):
                                     n_layers = num_layers)
     
     def forward(self, x):
-         """
+        """
         Performs a forward pass through the model.
 
         Args:
@@ -47,3 +47,4 @@ class CustomUnet(nn.Module):
                           `(batch_size, channels_out, height, width)`.
         """
         return self.model(x)
+    

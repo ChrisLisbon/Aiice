@@ -1,4 +1,4 @@
-from model.model_unet import CustomUnet
+from model.model_unet import CustomEncoderDecoder
 from trainer.trainer import Trainer
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
@@ -151,6 +151,7 @@ class IceDataset(Dataset):
         return self.x[index], self.y[index]
     
 
+# Example usage
 temp_data = MakeTimeSeriesPerWeek(r'D:\Arctic_project\dataset\osisaf')
 temp_data.load()
 dataset_train = IceDataset(temp_data.x_train, temp_data.y_train)
@@ -161,8 +162,13 @@ dataloader_train = DataLoader(dataset_train, batch_size=8)
 dataloader_val = DataLoader(dataset_val, batch_size=8)
 dataloader_test = DataLoader(dataset_test, batch_size=8)
 
-model = CustomUnet(num_layers=5, channels_in=48, channels_out=24, image_size=432)
-trainer = Trainer(model=model)
-model = trainer.train(dataloader_train, num_epoch=1)
-trainer.evaluate(dataloader_val)
-trainer.test(dataloader_test)
+model = CustomEncoderDecoder(num_layers=5, channels_in=48, channels_out=24, image_size=432)
+for name, _ in model.named_parameters():
+    print(name)
+
+print(model.model.encoder)
+print(model)
+# trainer = Trainer(model=model)
+# model = trainer.train(dataloader_train, num_epoch=2, make_plot=True)
+# trainer.evaluate(dataloader_val, make_plot=True)
+# trainer.test(dataloader_test, make_plot = True)

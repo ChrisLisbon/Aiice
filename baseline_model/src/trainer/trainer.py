@@ -1,12 +1,18 @@
 import torch
 from torch import nn
+import numpy as np
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.optim import Optimizer
-from torch.optim import AdamW
+import torch.optim as optim
 from tqdm import tqdm
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 import matplotlib.pyplot as plt
+from visualize.visualize import Visualizer
+from logger.logger import Loggger
+import logging
+
+logging.basicConfig(level=logging.INFO) 
 
 class Trainer:
     """
@@ -28,9 +34,15 @@ class Trainer:
         """
         self.model = model
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        print(self.device)
+        self.logger = Loggger()
+        self.optimizers = {
+            'Adam': optim.Adam,
+            'AdamW': optim.AdamW
+        }
+        self.visualizer = Visualizer(self.logger)
+        self.ssim = StructuralSimilarityIndexMeasure()
     
-    def train(self, dataloader_train:DataLoader, num_epoch:int = 100, lr:float = 1e-3, optimizer: Optimizer = None, loss_function: nn.Module = None)->None:
+    def train(self, dataloader_train:DataLoader, num_epoch:int = 100, lr:float = 1e-3, optimizer: str = None, loss_function: nn.Module = None, make_plot:bool=False)->None:
         """
         Trains the model using the provided training DataLoader.
 
@@ -47,35 +59,39 @@ class Trainer:
             nn.Module: The trained model.
         """
         if optimizer is None:
-            optimizer = AdamW(self.model.parameters(), lr=lr)
+            optimizer = self.optimizers['Adam'](self.model.parameters(), lr = lr)
+        else:
+            optimizer = self.optimizers[optimizer](self.model.parameters(), lr=lr)
+        
         if loss_function is None:
-            loss_function = nn.L1Loss()
+            loss_function = F.l1_loss
         
         self.model = self.model.to(self.device)
         self.model = self.model.train()
-        losses = list()
 
         for epoch in tqdm(range(num_epoch)):    
-            torch.cuda.empty_cache()
-
+            losses = list()
             for data in tqdm(dataloader_train):
-                optimizer.zero_grad()
                 x, y = data
-                x, y = x.to(self.device).to(torch.float32), y.to(self.device).to(torch.float32)
+                x, y = x.to(self.device), y.to(self.device)
+                x, y = x.to(torch.float32), y.to(torch.float32)
                 preds = self.model(x)
                 loss = loss_function(preds, y)
                 losses.append(loss.item())
+                optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+            self.logger.train_loss = np.array(losses).mean().item()
         
-        plt.plot(range(len(losses)), losses)
-        plt.xlabel('Step')
-        plt.ylabel('Loss')
-        plt.show()
+        # logging.info(f'Object custom logger inside {self.logger.train_loss}')
+        
+        if make_plot:
+            self.visualizer.visualize_loss()
+        
         return self.model
 
 
-    def evaluate(self, dataloader_val:DataLoader):
+    def evaluate(self, dataloader_val:DataLoader, make_plot:bool = False):
         """
         Evaluates the model on the provided validation DataLoader.
 
@@ -86,32 +102,28 @@ class Trainer:
         """
         self.model = self.model.to(self.device)
         self.model = self.model.eval()
-        
-        psnr_metric = list()
-        ssim_metric = list()
-        mae_metric = list()
 
-        ssim = StructuralSimilarityIndexMeasure()
+        predictions = list()
+        ground_truth = list()
 
         with torch.no_grad():
-            torch.cuda.empty_cache()
             for data in dataloader_val:
                 x, y = data
-                x, y = x.to(self.device).to(torch.float32), y.to(self.device).to(torch.float32)
+                x, y = x.to(self.device), y.to(self.device)
+                x, y = x.to(torch.float32), y.to(torch.float32)
                 preds = self.model(x)
-                ssim_metric.append(ssim(preds, y).item())
-                psnr_metric.append(self._calc_psnr(preds, y))
-                mae_metric.append(F.l1_loss(preds, y))
-        fig, ax =  plt.subplots(1, 3, figsize=(15, 5))
-        ax[0].plot(psnr_metric)
-        ax[0].set_title('PSNR metric')
-        ax[1].plot(ssim_metric)
-        ax[1].set_title('SSIM metric')
-        ax[2].plot(mae_metric)
-        ax[2].set_title('MAE metric')
-        plt.show()
+                predictions.append(preds)
+                ground_truth.append(y)
+        
+        self._calc_metrics(predictions, ground_truth)
+       
+        logging.info(f'Eval logs ssim {self.logger.ssim_eval}')
+        logging.info(f'Eval logs psnr {self.logger.psnr_eval}')
+        logging.info(f'Eval logs MAE {self.logger.eval_loss}')
+        if make_plot:
+            self.visualizer.visualuze_boxplot()
 
-    def test(self, dataloader_test:DataLoader)->None:
+    def test(self, dataloader_test:DataLoader, make_plot:bool = False)->None:
         """
         Tests the model on the provided test DataLoader and prints the average metrics.
 
@@ -123,33 +135,34 @@ class Trainer:
         self.model = self.model.to(self.device)
         self.model = self.model.eval()
 
-        ssim_metric = list()
-        psnr_metric = list()
-        mae_metric = list()
-
-        ssim = StructuralSimilarityIndexMeasure()
+        predictions = list()
+        ground_truth = list()
         
         with torch.no_grad():
             for data in dataloader_test:
                 x, y = data
-                x, y = x.to(self.device).to(torch.float32), y.to(self.device).to(torch.float32)
+                x, y = x.to(self.device), y.to(self.device)
+                x, y = x.to(torch.float32), y.to(torch.float32)
                 preds = self.model(x)
-                ssim_metric.append(ssim(preds, y).item())
-                psnr_metric.append(self._calc_psnr(preds, y))
-                mae_metric.append(F.l1_loss(preds, y).item())
-            
-        if len(ssim_metric) == 1:
-            print(f'SSIM metric is {ssim_metric[-1]}')
-            print('-'*10)
-            print(f'PSNR metric is {psnr_metric[-1]}')
-            print('-' * 10)
-            print(f'MAE metric is {mae_metric[-1]}')
-        else:
-            print(f'SSIM metric is {torch.tensor(ssim_metric).mean().item()}')
-            print('-'*10)
-            print(f'PSNR metric is {torch.tensor(psnr_metric).mean().item()}')
-            print('-' * 10)
-            print(f'MAE metric is {torch.tensor(mae_metric).mean().item()}')
+                predictions.append(preds)
+                ground_truth.append(y)
+        
+        self._calc_metrics(preds=predictions, ground_truth=ground_truth, stage='test')
+
+        
+        logging.info(f'Test logs ssim {self.logger.ssim_test}')
+        logging.info(f'Test logs psnr {self.logger.psnr_test}')
+        logging.info(f'Test logs MAE {self.logger.mae_test}')
+
+        
+        print(f'SSIM metric is {np.array(self.logger.ssim_test).mean().item()}')
+        print('-'*10)
+        print(f'PSNR metric is {np.array(self.logger.psnr_test).mean().item()}')
+        print('-' * 10)
+        print(f'MAE metric is {np.array(self.logger.mae_test).mean().item()}')
+
+        if make_plot:
+            self.visualizer.visualuze_boxplot(stage='test')
 
 
     def _calc_psnr(self, pred:torch.Tensor, label:torch.Tensor, scaled:bool = True, max_val: int = None)->float:
@@ -172,4 +185,22 @@ class Trainer:
             max_val = 100
         mse = F.mse_loss(pred, label)
         return 20*torch.log10(max_val / torch.sqrt(mse)).item()
+    
+
+    def _calc_metrics(self, preds:list, ground_truth:list, stage:str = 'eval'):
+        for index in range(len(preds)):
+            current_preds = torch.squeeze(preds[index])
+            current_label = torch.squeeze(ground_truth[index])
+            
+            for index_im in range(len(current_label)):
+                if stage == 'eval':
+                    self.logger.psnr_eval = self._calc_psnr(current_preds[index_im], current_label[index_im])
+                    self.logger.ssim_eval = self.ssim(current_preds[index_im].unsqueeze(0).unsqueeze(0), 
+                                                      current_label[index_im].unsqueeze(0).unsqueeze(0)).item()
+                    self.logger.eval_loss = F.l1_loss(current_preds[index_im], current_label[index_im]).item()
+                else:
+                    self.logger.psnr_test = self._calc_psnr(current_preds[index_im], current_label[index_im])
+                    self.logger.ssim_test = self.ssim(current_preds[index_im].unsqueeze(0).unsqueeze(0), 
+                                                      current_label[index_im].unsqueeze(0).unsqueeze(0)).item()
+                    self.logger.mae_test = F.l1_loss(current_preds[index_im], current_label[index_im]).item()
             

@@ -34,6 +34,7 @@ class TestLoader_download(BaseTestLoader):
             local_dir=self.test_local_dir,
             start=date(2020, 1, 1),
             end=date(2020, 1, 3),
+            step=2,
             threads=2,
         )
 
@@ -50,7 +51,10 @@ class TestLoader_download(BaseTestLoader):
             ],
             any_order=False,
         )
-        mock_get_filenames.assert_called_once()
+        mock_get_filenames.assert_has_calls(
+            [call(start=date(2020, 1, 1), end=date(2020, 1, 3), step=2)],
+            any_order=False,
+        )
 
     @patch("aiice.loader.HfDatasetClient.download_file")
     @patch("aiice.loader.HfDatasetClient.get_filenames")
@@ -86,14 +90,16 @@ class TestLoader_get(BaseTestLoader):
         mock_get_filenames.return_value = ["a.npy", "b.npy", "c.npy"]
         mock_read_file.side_effect = [self.fake_data] * 3
 
-        result = loader.get(threads=2)
+        result = loader.get(threads=2, step=3)
 
         assert isinstance(result, np.ndarray)
         assert result.shape == (3, 2, 2)
         mock_read_file.assert_has_calls(
             [call(filename=f) for f in mock_get_filenames.return_value], any_order=False
         )
-        mock_get_filenames.assert_called_once()
+        mock_get_filenames.assert_has_calls(
+            [call(start=None, end=None, step=3)], any_order=False
+        )
 
     @patch("aiice.loader.HfDatasetClient.read_file")
     @patch("aiice.loader.HfDatasetClient.get_filenames")

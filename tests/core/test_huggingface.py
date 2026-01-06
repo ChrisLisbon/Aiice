@@ -62,6 +62,15 @@ class TestHfDatasetClient_get_filenames(BaseTestHfDatasetClient):
         assert files[0] == client.get_filename_template(start)
         assert files[-1] == client.get_filename_template(end)
 
+    def test_step(self, client: HfDatasetClient):
+        start, end = date(2020, 1, 30), date(2020, 2, 5)
+        files = client.get_filenames(start=start, end=end, step=3)
+
+        assert len(files) == 3
+        assert files[0] == client.get_filename_template(start)
+        assert files[1] == client.get_filename_template(date(2020, 2, 2))
+        assert files[-1] == client.get_filename_template(end)
+
     def test_single_day_range(self, client: HfDatasetClient):
         day = date(2021, 6, 15)
         files = client.get_filenames(start=day, end=day)

@@ -16,9 +16,10 @@ class Loader:
         local_dir: str,
         start: date | None = None,
         end: date | None = None,
+        step: date | None = None,
         threads: int = 24,
     ) -> list[str | None]:
-        filenames = self._hf.get_filenames(start=start, end=end)
+        filenames = self._hf.get_filenames(start=start, end=end, step=step)
         with ThreadPoolExecutor(max_workers=threads) as pool:
             return list(
                 pool.map(
@@ -33,10 +34,11 @@ class Loader:
         self,
         start: date | None = None,
         end: date | None = None,
-        threads: int = 24,
+        step: int | None = None,
         test_size: float | None = None,
+        threads: int = 24,
     ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
-        filenames = self._hf.get_filenames(start=start, end=end)
+        filenames = self._hf.get_filenames(start=start, end=end, step=step)
         if test_size is None:
             return self._get_files(filenames=filenames, threads=threads)
 

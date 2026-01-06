@@ -39,7 +39,10 @@ class HfDatasetClient:
         return f"global_series/{d.year}/osisaf_{d.year}{d.month:02d}{d.day:02d}.npy"
 
     def get_filenames(
-        self, start: None | date = None, end: None | date = None
+        self,
+        start: date | None = None,
+        end: date | None = None,
+        step: int | None = None,
     ) -> list[str]:
         start = start or self.dataset_start
         end = end or self.dataset_end
@@ -55,10 +58,11 @@ class HfDatasetClient:
 
         filenames: list[str] = []
         current = start
+        delta = timedelta(days=step or 1)
 
         while current <= end:
             filenames.append(self.get_filename_template(current))
-            current += timedelta(days=1)
+            current += delta
 
         return filenames
 

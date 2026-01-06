@@ -55,7 +55,6 @@ class TestLoader_download(BaseTestLoader):
             any_order=False,
         )
 
-
     @patch("aiice.loader.HfDatasetClient.download_file")
     @patch("aiice.loader.HfDatasetClient.get_filenames")
     def test_empty_filenames(self, mock_get_filenames, mock_download, loader: Loader):

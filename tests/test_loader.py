@@ -43,7 +43,10 @@ class TestLoader_download(BaseTestLoader):
             f"{self.test_local_dir}/b.npy",
             None,
         ]
-        mock_get_filenames.assert_called_once()
+        mock_get_filenames.assert_has_calls(
+            [call(start=date(2020, 1, 1), end=date(2020, 1, 3), step=2)],
+            any_order=False,
+        )
         mock_download.assert_has_calls(
             [
                 call(filename=f, local_dir=self.test_local_dir)
@@ -51,10 +54,7 @@ class TestLoader_download(BaseTestLoader):
             ],
             any_order=False,
         )
-        mock_get_filenames.assert_has_calls(
-            [call(start=date(2020, 1, 1), end=date(2020, 1, 3), step=2)],
-            any_order=False,
-        )
+
 
     @patch("aiice.loader.HfDatasetClient.download_file")
     @patch("aiice.loader.HfDatasetClient.get_filenames")

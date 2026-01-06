@@ -16,7 +16,6 @@ dependencies = [
 dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
-    { name = "requests" },
 ]
 
 [package.metadata]
@@ -30,7 +29,6 @@ requires-dist = [
 dev = [
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
-    { name = "requests", specifier = ">=2.32.5" },
 ]
 
 [[package]]

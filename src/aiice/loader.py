@@ -9,7 +9,42 @@ from aiice.core.huggingface import HfDatasetClient
 
 class Loader:
     def __init__(self):
+        """
+        Dataset Loader with a Hugging Face dataset client.
+        """
         self._hf = HfDatasetClient()
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        """
+        Return shape of a single dataset sample.
+        """
+        return self._hf.shape
+
+    @property
+    def dataset_start(self) -> date:
+        """
+        Return earliest available date in the dataset.
+        """
+        return self._hf.dataset_start
+
+    @property
+    def dataset_end(self) -> date:
+        """
+        Return latest available date in the dataset.
+        """
+        return self._hf.dataset_end
+
+    def info(self, per_year: bool = False) -> dict[str, any]:
+        """
+        Collect dataset statistics.
+
+        Parameters
+        ----------
+        per_year : bool
+            If True, include per-year statistics.
+        """
+        return self._hf.info(per_year=per_year)
 
     def download(
         self,
@@ -19,6 +54,22 @@ class Loader:
         step: date | None = None,
         threads: int = 24,
     ) -> list[str | None]:
+        """
+        Download dataset files to a local directory in parallel.
+
+        Parameters
+        ----------
+        local_dir : str
+            Directory to save files.
+        start : date, optional
+            Start date for files.
+        end : date, optional
+            End date for files.
+        step : int, optional
+            Step in days between files.
+        threads : int
+            Number of parallel download threads.
+        """
         filenames = self._hf.get_filenames(start=start, end=end, step=step)
         with ThreadPoolExecutor(max_workers=threads) as pool:
             return list(
@@ -38,6 +89,22 @@ class Loader:
         test_size: float | None = None,
         threads: int = 24,
     ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+        """
+        Load dataset into memory, optionally split into train/test.
+
+        Parameters
+        ----------
+        start : date, optional
+            Start date for files.
+        end : date, optional
+            End date for files.
+        step : int, optional
+            Step in days between files.
+        test_size : float, optional
+            Fraction of data for test split (0–1).
+        threads : int
+            Number of parallel loading threads.
+        """
         filenames = self._hf.get_filenames(start=start, end=end, step=step)
         if test_size is None:
             return self._get_files(filenames=filenames, threads=threads)

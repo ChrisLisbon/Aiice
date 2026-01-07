@@ -50,4 +50,4 @@ jobs:
         run: uv sync --locked --all-extras --dev
 
       - name: Run tests
-        run: uv run pytest --cov=. --cov-branch tests
+        run: uv run pytest --cov=. --cov-branch --cov-fail-under=80 tests

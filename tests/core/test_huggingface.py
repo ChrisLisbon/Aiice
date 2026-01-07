@@ -7,7 +7,16 @@ import pytest
 import requests
 from huggingface_hub.errors import RemoteEntryNotFoundError
 
-from aiice.constants import HF_BASE_URL, HF_DATASET_REPO, HF_REPO_TYPE
+from aiice.constants import (
+    BYTES_IN_MB,
+    HF_BASE_URL,
+    HF_DATASET_REPO,
+    HF_REPO_TYPE,
+    KEY_FILES,
+    KEY_PER_YEAR,
+    KEY_SIZE_BYTES,
+    KEY_SIZE_MB,
+)
 from aiice.core.huggingface import HfDatasetClient
 
 
@@ -27,7 +36,7 @@ class TestHfDatasetClient_get_filename_template(BaseTestHfDatasetClient):
         ],
     )
     def test_ok(self, client: HfDatasetClient, value, expected):
-        assert client.get_filename_template(value) == expected
+        assert client._get_filename_template(value) == expected
 
 
 class TestHfDatasetClient_get_filenames(BaseTestHfDatasetClient):
@@ -37,52 +46,52 @@ class TestHfDatasetClient_get_filenames(BaseTestHfDatasetClient):
         expected_len = (client.dataset_end - client.dataset_start).days + 1
 
         assert len(files) == expected_len
-        assert files[0] == client.get_filename_template(client.dataset_start)
-        assert files[-1] == client.get_filename_template(client.dataset_end)
+        assert files[0] == client._get_filename_template(client.dataset_start)
+        assert files[-1] == client._get_filename_template(client.dataset_end)
 
     def test_start_only(self, client: HfDatasetClient):
         start = client.dataset_start + timedelta(days=10)
         files = client.get_filenames(start=start)
 
-        assert files[0] == client.get_filename_template(start)
-        assert files[-1] == client.get_filename_template(client.dataset_end)
+        assert files[0] == client._get_filename_template(start)
+        assert files[-1] == client._get_filename_template(client.dataset_end)
 
     def test_end_only(self, client: HfDatasetClient):
         end = client.dataset_start + timedelta(days=10)
         files = client.get_filenames(end=end)
 
-        assert files[0] == client.get_filename_template(client.dataset_start)
-        assert files[-1] == client.get_filename_template(end)
+        assert files[0] == client._get_filename_template(client.dataset_start)
+        assert files[-1] == client._get_filename_template(end)
 
     def test_start_and_end(self, client: HfDatasetClient):
         start, end = date(2020, 1, 1), date(2020, 1, 5)
         files = client.get_filenames(start=start, end=end)
 
         assert len(files) == 5
-        assert files[0] == client.get_filename_template(start)
-        assert files[-1] == client.get_filename_template(end)
+        assert files[0] == client._get_filename_template(start)
+        assert files[-1] == client._get_filename_template(end)
 
     def test_step(self, client: HfDatasetClient):
         start, end = date(2020, 1, 30), date(2020, 2, 5)
         files = client.get_filenames(start=start, end=end, step=3)
 
         assert len(files) == 3
-        assert files[0] == client.get_filename_template(start)
-        assert files[1] == client.get_filename_template(date(2020, 2, 2))
-        assert files[-1] == client.get_filename_template(end)
+        assert files[0] == client._get_filename_template(start)
+        assert files[1] == client._get_filename_template(date(2020, 2, 2))
+        assert files[-1] == client._get_filename_template(end)
 
     def test_single_day_range(self, client: HfDatasetClient):
         day = date(2021, 6, 15)
         files = client.get_filenames(start=day, end=day)
 
-        assert files == [client.get_filename_template(day)]
+        assert files == [client._get_filename_template(day)]
 
     def test_start_or_end_equals_defaults(self, client: HfDatasetClient):
         files = client.get_filenames(start=client.dataset_start)
-        assert files[0] == client.get_filename_template(client.dataset_start)
+        assert files[0] == client._get_filename_template(client.dataset_start)
 
         files = client.get_filenames(end=client.dataset_end)
-        assert files[-1] == client.get_filename_template(client.dataset_end)
+        assert files[-1] == client._get_filename_template(client.dataset_end)
 
     def test_start_before_dataset_start_raises(self, client: HfDatasetClient):
         with pytest.raises(ValueError):
@@ -183,3 +192,48 @@ class TestHfDatasetClient_download_file(BaseTestHfDatasetClient):
         with pytest.raises(RuntimeError) as err:
             client.download_file("dummy.npy", "/tmp")
         assert "Failed to download file" in str(err.value)
+
+
+class TestHfDatasetClient_info(BaseTestHfDatasetClient):
+
+    @patch.object(HfDatasetClient, "_fetch_year_stats")
+    def test_info_without_per_year(self, mock_fetch, client: HfDatasetClient):
+        def fake_fetch(year):
+            return (year, year - 1999, (year - 1999) * 1000)
+
+        mock_fetch.side_effect = fake_fetch
+
+        result = client.info(per_year=False, threads=2)
+
+        expected_total_files = sum(
+            year - 1999
+            for year in range(client.dataset_start.year, client.dataset_end.year + 1)
+        )
+        expected_total_size = sum(
+            (year - 1999) * 1000
+            for year in range(client.dataset_start.year, client.dataset_end.year + 1)
+        )
+
+        assert result[f"total_{KEY_FILES}"] == expected_total_files
+        assert result[f"total_{KEY_SIZE_BYTES}"] == expected_total_size
+        assert result[f"total_{KEY_SIZE_MB}"] == round(
+            expected_total_size / BYTES_IN_MB, 2
+        )
+        assert KEY_PER_YEAR not in result
+
+    @patch.object(HfDatasetClient, "_fetch_year_stats")
+    def test_info_with_per_year(self, mock_fetch, client: HfDatasetClient):
+        def fake_fetch(year):
+            return (year, year - 1999, (year - 1999) * 1000)
+
+        mock_fetch.side_effect = fake_fetch
+
+        result = client.info(per_year=True, threads=2)
+        per_year = result[KEY_PER_YEAR]
+
+        for year in range(client.dataset_start.year, client.dataset_end.year + 1):
+            assert per_year[year][KEY_FILES] == year - 1999
+            assert per_year[year][KEY_SIZE_BYTES] == (year - 1999) * 1000
+            assert per_year[year][KEY_SIZE_MB] == round(
+                (year - 1999) * 1000 / BYTES_IN_MB, 2
+            )

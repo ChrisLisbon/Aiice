@@ -7,10 +7,15 @@ This project uses [uv](https://github.com/astral-sh/uv) for Python version, depe
 
 We try to maintain good practices of readable open source code. Therefore, if you want to participate in the development and open your pool request, pay attention to the following points:
 
-- To install the project together with all development dependencies, run::
+- To install the project together with all development dependencies, run:
     ```shell
     uv sync --locked --all-extras --dev
     ```
+  You can also use `pip` in your own Python environment, but using `uv` is the **preferred way** 
+  cause of possible dependency resolve problems.  
+  ```shell
+  pip install -e ".[dev]"
+  ```
 
 - Before committing or pushing changes, please run the formatters from the repository root:
     ```shell

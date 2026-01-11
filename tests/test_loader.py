@@ -1,4 +1,5 @@
 from datetime import date
+from io import BytesIO
 from unittest.mock import call, patch
 
 import numpy as np
@@ -81,13 +82,15 @@ class TestLoader_download(BaseTestLoader):
 
 class TestLoader_get(BaseTestLoader):
     def setup_method(self):
-        self.fake_data = np.array([[1, 2], [3, 4]])
+        buffer = BytesIO()
+        np.save(buffer, np.array([[1, 2], [3, 4]]))
+        self.fake_bytes = buffer.getvalue()
 
     @patch("aiice.loader.HfDatasetClient.read_file")
     @patch("aiice.loader.HfDatasetClient.get_filenames")
     def test_ok(self, mock_get_filenames, mock_read_file, loader: Loader):
         mock_get_filenames.return_value = ["a.npy", "b.npy", "c.npy"]
-        mock_read_file.side_effect = [self.fake_data] * 3
+        mock_read_file.side_effect = [self.fake_bytes] * 3
 
         result = loader.get(threads=2, step=3)
 
@@ -102,52 +105,9 @@ class TestLoader_get(BaseTestLoader):
 
     @patch("aiice.loader.HfDatasetClient.read_file")
     @patch("aiice.loader.HfDatasetClient.get_filenames")
-    def test_split_train_test(self, mock_get_filenames, mock_read_file, loader: Loader):
-        mock_get_filenames.return_value = ["a.npy", "b.npy", "c.npy", "d.npy"]
-        mock_read_file.side_effect = [self.fake_data] * 4
-
-        train, test = loader.get(threads=2, test_size=0.25)
-
-        # train = first 3 matrices, test = last one matrix
-        assert train.shape == (3, 2, 2)
-        assert test.shape == (1, 2, 2)
-        mock_read_file.assert_has_calls(
-            [call(filename=f) for f in mock_get_filenames.return_value],
-            any_order=False,
-        )
-        mock_get_filenames.assert_called_once()
-
-    @patch("aiice.loader.HfDatasetClient.read_file")
-    @patch("aiice.loader.HfDatasetClient.get_filenames")
-    def test_test_size_0_or_1(self, mock_get_filenames, mock_read_file, loader: Loader):
-        mock_get_filenames.return_value = ["a.npy", "b.npy"]
-        mock_read_file.side_effect = lambda filename: self.fake_data
-
-        train, test = loader.get(test_size=0.0)
-        assert train.shape == (2, 2, 2)
-        assert test.size == 0
-
-        train, test = loader.get(threads=1, test_size=1.0)
-        assert train.size == 0
-        assert test.shape == (2, 2, 2)
-
-    @patch("aiice.loader.HfDatasetClient.get_filenames")
-    def test_invalid_test_size_raises(self, mock_get_filenames, loader: Loader):
-        mock_get_filenames.return_value = ["a.npy", "b.npy"]
-
-        with pytest.raises(ValueError) as err:
-            loader.get(test_size=-0.1)
-        assert "Test size should be between" in str(err.value)
-
-        with pytest.raises(ValueError) as err:
-            loader.get(test_size=1.1)
-        assert "Test size should be between" in str(err.value)
-
-    @patch("aiice.loader.HfDatasetClient.read_file")
-    @patch("aiice.loader.HfDatasetClient.get_filenames")
     def test_not_found_raises(self, mock_get_filenames, mock_read_file, loader: Loader):
         mock_get_filenames.return_value = ["a.npy", "b.npy"]
-        mock_read_file.side_effect = [self.fake_data, None]
+        mock_read_file.side_effect = [self.fake_bytes, None]
 
         with pytest.raises(ValueError) as err:
             loader.get()

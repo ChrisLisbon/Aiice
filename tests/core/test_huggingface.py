@@ -2,7 +2,6 @@ from datetime import date, timedelta
 from io import BytesIO
 from unittest.mock import ANY, patch
 
-import numpy as np
 import pytest
 import requests
 from huggingface_hub.errors import RemoteEntryNotFoundError
@@ -110,10 +109,8 @@ class TestHfDatasetClient_read_file(BaseTestHfDatasetClient):
 
     @patch("aiice.core.huggingface.http_get")
     def test_ok(self, mock_http_get, client: HfDatasetClient):
-        arr = np.array([[1, 2], [3, 4]])
-        buf = BytesIO()
-        np.save(buf, arr)
-        buf.seek(0)
+        file_value = b"content doesn't matter"
+        buf = BytesIO(file_value)
 
         def fake_http_get(url, temp_file, **kwargs):
             temp_file.write(buf.getvalue())
@@ -122,8 +119,8 @@ class TestHfDatasetClient_read_file(BaseTestHfDatasetClient):
 
         result = client.read_file("dummy.npy")
 
-        assert isinstance(result, np.ndarray)
-        np.testing.assert_array_equal(result, arr)
+        assert isinstance(result, bytes)
+        assert result == file_value
         mock_http_get.assert_called_once_with(
             url=f"{HF_BASE_URL}/datasets/{HF_DATASET_REPO}/resolve/main/dummy.npy",
             temp_file=ANY,
@@ -148,17 +145,6 @@ class TestHfDatasetClient_read_file(BaseTestHfDatasetClient):
         with pytest.raises(RuntimeError) as err:
             client.read_file("dummy.npy")
         assert "Network error" in str(err.value)
-
-    @patch("aiice.core.huggingface.http_get")
-    def test_invalid_npy(self, mock_http_get, client: HfDatasetClient):
-        def fake_http_get(url, temp_file, **kwargs):
-            temp_file.write(b"not a npy file")
-
-        mock_http_get.side_effect = fake_http_get
-
-        with pytest.raises(RuntimeError) as err:
-            client.read_file("dummy.npy")
-        assert "Failed to decode npy file" in str(err.value)
 
 
 class TestHfDatasetClient_download_file(BaseTestHfDatasetClient):

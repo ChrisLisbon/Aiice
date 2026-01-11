@@ -4,7 +4,6 @@ from datetime import date, timedelta
 from functools import lru_cache
 from io import BytesIO
 
-import numpy as np
 import requests
 from huggingface_hub import HfApi
 from huggingface_hub.constants import DEFAULT_REQUEST_TIMEOUT
@@ -14,6 +13,8 @@ from huggingface_hub.file_download import http_get
 from aiice.constants import (
     BYTES_IN_MB,
     DATASET_SHAPE,
+    DEFAULT_BACKOFF,
+    DEFAULT_RETRIES,
     HF_BASE_URL,
     HF_DATASET_REPO,
     HF_REPO_TYPE,
@@ -29,6 +30,7 @@ from aiice.constants import (
     PACKAGE_NAME,
     YEAR_STATS_CACHE_SIZE,
 )
+from aiice.core.utils import retry_on_network_errors
 
 
 class HfDatasetClient:
@@ -163,7 +165,8 @@ class HfDatasetClient:
 
         return filenames
 
-    def read_file(self, filename: str) -> np.ndarray | None:
+    @retry_on_network_errors(retries=DEFAULT_RETRIES, backoff=DEFAULT_BACKOFF)
+    def read_file(self, filename: str) -> bytes | None:
         """
         Load a dataset file from Hugging Face into memory.
 
@@ -180,8 +183,7 @@ class HfDatasetClient:
                 temp_file=buffer,
                 displayed_filename=filename,
             )
-            buffer.seek(0)
-            return np.load(buffer)
+            return buffer.getvalue()
 
         # ignore if file isn't found
         except RemoteEntryNotFoundError:
@@ -190,9 +192,7 @@ class HfDatasetClient:
         except requests.RequestException as e:
             raise RuntimeError(f"Network error {url}") from e
 
-        except ValueError as e:
-            raise RuntimeError(f"Failed to decode npy file {url}") from e
-
+    @retry_on_network_errors(retries=DEFAULT_RETRIES, backoff=DEFAULT_BACKOFF)
     def download_file(self, filename: str, local_dir: str) -> str | None:
         """
         Download a dataset file to a local directory.

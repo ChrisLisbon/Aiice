@@ -1,9 +1,10 @@
-from concurrent.futures import ThreadPoolExecutor
+import os
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from datetime import date
+from io import BytesIO
 
 import numpy as np
 
-from aiice.constants import MAX_SPLIT_FRACTION, MIN_SPLIT_FRACTION
 from aiice.core.huggingface import HfDatasetClient
 
 
@@ -52,7 +53,7 @@ class Loader:
         start: date | None = None,
         end: date | None = None,
         step: date | None = None,
-        threads: int = 24,
+        threads: int = 32,
     ) -> list[str | None]:
         """
         Download dataset files to a local directory in parallel.
@@ -74,9 +75,7 @@ class Loader:
         with ThreadPoolExecutor(max_workers=threads) as pool:
             return list(
                 pool.map(
-                    lambda filename: self._hf.download_file(
-                        filename=filename, local_dir=local_dir
-                    ),
+                    lambda f: self._hf.download_file(filename=f, local_dir=local_dir),
                     filenames,
                 )
             )
@@ -86,11 +85,11 @@ class Loader:
         start: date | None = None,
         end: date | None = None,
         step: int | None = None,
-        test_size: float | None = None,
-        threads: int = 24,
-    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+        threads: int = 18,
+        processes: int | None = None,
+    ) -> np.ndarray:
         """
-        Load dataset into memory, optionally split into train/test.
+        Load dataset into memory.
 
         Parameters
         ----------
@@ -100,42 +99,26 @@ class Loader:
             End date for files.
         step : int, optional
             Step in days between files.
-        test_size : float, optional
-            Fraction of data for test split (0–1).
-        threads : int
-            Number of parallel loading threads.
+        threads: int
+            Number of parallel download threads.
+        processes: int, optional
+            Number of worker processes used for decoding bytes into numpy matrices.
+            If None, uses as many processes as there are CPU cores.
         """
         filenames = self._hf.get_filenames(start=start, end=end, step=step)
-        if test_size is None:
-            return self._get_files(filenames=filenames, threads=threads)
+        with ThreadPoolExecutor(max_workers=threads) as tpool:
+            raw_files = list(tpool.map(self._get_raw_file, filenames))
 
-        if not MIN_SPLIT_FRACTION <= test_size <= MAX_SPLIT_FRACTION:
-            raise ValueError(
-                f"Test size should be between {MAX_SPLIT_FRACTION} and {MAX_SPLIT_FRACTION}"
-            )
+        with ProcessPoolExecutor(max_workers=processes) as ppool:
+            arrays = list(ppool.map(self._decode_raw_file, raw_files))
 
-        if test_size == MIN_SPLIT_FRACTION:
-            return self._get_files(filenames, threads), np.empty((0,))
+        return np.stack(arrays)
 
-        if test_size == MAX_SPLIT_FRACTION:
-            return np.empty((0,)), self._get_files(filenames, threads)
-
-        split_index = len(filenames) - int(len(filenames) * test_size)
-        train_files = filenames[:split_index]
-        test_files = filenames[split_index:]
-
-        return (
-            self._get_files(train_files, threads),
-            self._get_files(test_files, threads),
-        )
-
-    def _get_file(self, filename: str) -> np.ndarray:
-        npy = self._hf.read_file(filename=filename)
-        if npy is None:
+    def _get_raw_file(self, filename: str) -> bytes:
+        raw = self._hf.read_file(filename=filename)
+        if raw is None:
             raise ValueError(f"Remote file {filename} not found")
-        return npy
+        return raw
 
-    def _get_files(self, filenames: list[str], threads: int):
-        with ThreadPoolExecutor(max_workers=threads) as pool:
-            npys = list(pool.map(lambda filename: self._get_file(filename), filenames))
-        return np.array(npys)
+    def _decode_raw_file(self, raw: bytes) -> np.ndarray:
+        return np.load(BytesIO(raw))

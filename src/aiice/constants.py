@@ -27,5 +27,6 @@ KEY_SIZE_MB = "size_mb"
 # aiice constants
 
 PACKAGE_NAME: str = "aiice"
-MIN_SPLIT_FRACTION: float = 0.0
-MAX_SPLIT_FRACTION: float = 1.0
+
+DEFAULT_RETRIES = 3
+DEFAULT_BACKOFF = 2.0

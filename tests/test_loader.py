@@ -54,7 +54,7 @@ class TestLoader_download(BaseTestLoader):
                 call(filename=f, local_dir=self.test_local_dir)
                 for f in mock_get_filenames.return_value
             ],
-            any_order=False,
+            any_order=True,  # in higher python versions threadpool order can be not deterministic
         )
 
     @patch("aiice.loader.HfDatasetClient.download_file")
@@ -124,7 +124,7 @@ class TestLoader_get(BaseTestLoader):
         )
         mock_read_file.assert_has_calls(
             [call(filename=f) for f in mock_get_filenames.return_value],
-            any_order=False,
+            any_order=True,  # in higher python versions processpool order can be not deterministic
         )
 
     @patch("aiice.loader.HfDatasetClient.read_file")

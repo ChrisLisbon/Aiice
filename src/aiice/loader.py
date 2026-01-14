@@ -1,4 +1,3 @@
-import os
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from datetime import date
 from io import BytesIO

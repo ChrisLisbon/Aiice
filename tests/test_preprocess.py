@@ -127,3 +127,21 @@ class TestSlidingWindowDataset:
 
         np.testing.assert_array_equal(x0.numpy(), np.array(expected_x0))
         np.testing.assert_array_equal(y0.numpy(), np.array(expected_y0))
+
+    def test_getitem_non_int_index_raises(self):
+        dataset = SlidingWindowDataset(
+            data=[1, 2, 3, 4], pre_history_len=2, forecast_len=1
+        )
+        with pytest.raises(TypeError) as exc:
+            _ = dataset["not_an_int"]
+        assert "index must be int" in str(exc.value)
+
+    @pytest.mark.parametrize("idx", [-1, 2, 3, 10])
+    def test_getitem_index_out_of_range_raises(self, idx):
+        # T=4, pre_history_len=2, forecast_len=1 => len=2, valid indices = 0,1
+        dataset = SlidingWindowDataset(
+            data=[1, 2, 3, 4], pre_history_len=2, forecast_len=1
+        )
+        with pytest.raises(IndexError) as exc:
+            _ = dataset[idx]
+        assert "index out of range" in str(exc.value)

@@ -3,7 +3,15 @@ from typing import Sequence
 import torch
 from torch.utils.data import Dataset
 
-from aiice.metrics import _apply_threshold
+
+def apply_threshold(tensor: torch.Tensor, threshold: float = 0.5) -> torch.Tensor:
+    "Binarize tensor with a threshold"
+    return (tensor > threshold).to(tensor.dtype)
+
+
+# TODO:
+# - add base preprocess functions tests
+# - add reduce tensor functions
 
 
 class SlidingWindowDataset(Dataset):
@@ -77,7 +85,13 @@ class SlidingWindowDataset(Dataset):
     def __len__(self):
         return self._length
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int):
+        if not isinstance(idx, int):
+            raise TypeError("index must be int")
+
+        if idx < 0 or idx >= self._length:
+            raise IndexError("index out of range")
+
         x = self._data[idx : idx + self._pre_history_len]
         y = self._data[
             idx
@@ -87,7 +101,7 @@ class SlidingWindowDataset(Dataset):
         ]
 
         if isinstance(self._threshold, float):
-            y = _apply_threshold(y, self._threshold)
-            x = _apply_threshold(x, self._threshold) if self._x_binarize else x
+            y = apply_threshold(y, self._threshold)
+            x = apply_threshold(x, self._threshold) if self._x_binarize else x
 
         return x, y

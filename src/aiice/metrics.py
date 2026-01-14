@@ -5,10 +5,7 @@ import pytorch_msssim
 import torch
 
 from aiice.constants import DEFAULT_SSIM_KERNEL_WINDOW_SIZE
-
-
-def _apply_threshold(tensor: torch.Tensor, threshold: float = 0.5) -> torch.Tensor:
-    return (tensor > threshold).to(tensor.dtype)
+from aiice.preprocess import apply_threshold
 
 
 def _as_tensor(y_true: Sequence, y_pred: Sequence, device=None):
@@ -63,8 +60,8 @@ def bin_accuracy(y_true: Sequence, y_pred: Sequence, threshold: float = 0.5) -> 
     """
     y_true, y_pred = _as_tensor(y_true, y_pred)
 
-    y_true = _apply_threshold(y_true, threshold)
-    y_pred = _apply_threshold(y_pred, threshold)
+    y_true = apply_threshold(y_true, threshold)
+    y_pred = apply_threshold(y_pred, threshold)
 
     return float((y_true == y_pred).float().mean())
 

@@ -71,6 +71,7 @@ class HfDatasetClient:
         """
         return self._shape
 
+    @retry_on_network_errors(retries=DEFAULT_RETRIES, backoff=DEFAULT_BACKOFF)
     def info(self, per_year: bool = False, threads: int = 24) -> dict[str, any]:
         """
         Collect dataset size statistics.

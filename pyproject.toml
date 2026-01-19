@@ -24,6 +24,9 @@ dev = [
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
 ]
+scripts = [
+    "matplotlib>=3.10.8",
+]
 
 [tool.isort]
 profile = "black"

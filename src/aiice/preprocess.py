@@ -8,10 +8,20 @@ def apply_threshold(tensor: torch.Tensor, threshold: float = 0.5) -> torch.Tenso
     "Binarize tensor with a threshold"
     return (tensor > threshold).to(tensor.dtype)
 
+def apply_downsample(t: torch.Tensor, i: int) -> torch.Tensor:
+    """
+    Removes every i-th element along the last axis of the tensor.
 
-# TODO:
-# - add base preprocess functions tests
-# - add reduce tensor functions
+    Example:
+        i=2 keeps indices [0,2,4,...]
+        i=3 keeps indices [0,3,6,...]
+    """
+    if i <= 0:
+        raise ValueError("i must be > 0")
+
+    idx = torch.arange(t.shape[-1], device=t.device)
+    keep = idx % i == 0
+    return t.index_select(-1, idx[keep])
 
 
 class SlidingWindowDataset(Dataset):

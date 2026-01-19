@@ -37,7 +37,7 @@ class TestLoader_download(BaseTestLoader):
 
         result = loader.download(
             local_dir=self.test_local_dir,
-            start=date(2020, 1, 1),
+            start="2020-01-01",
             end=date(2020, 1, 3),
             step=2,
             threads=2,
@@ -114,19 +114,19 @@ class TestLoader_get(BaseTestLoader):
 
         mock_read_file.side_effect = fake_read
 
-        result = loader.get(threads=2, step=3, tensor_out=tensor_out)
+        result = loader.get(start="2020-01-01", threads=2, step=3, tensor_out=tensor_out)
 
         assert isinstance(result, expected_type)
         assert tuple(result.shape) == (3, 2, 2)
 
-        expected_result = np.array([[[1, 2], [3, 4]]] * 3)
+        expected_result = np.array([[[1, 2], [3, 4]]] * 3, dtype=np.float32) / 100.0
         if tensor_out:
             np.testing.assert_array_equal(result.numpy(), expected_result)
         else:
             np.testing.assert_array_equal(result, expected_result)
 
         mock_get_filenames.assert_has_calls(
-            [call(start=None, end=None, step=3)],
+            [call(start=date(2020, 1, 1), end=None, step=3)],
             any_order=False,
         )
         mock_read_file.assert_has_calls(

@@ -9,12 +9,15 @@ We try to maintain good practices of readable open source code. Therefore, if yo
 
 - To install the project together with all development dependencies, run:
     ```shell
-    uv sync --locked --all-extras --dev
+    uv sync --locked --all-extras --dev --group=scripts
     ```
   You can also use `pip` in your own Python environment, but using `uv` is the **preferred way** 
   cause of possible dependency resolve problems.  
   ```shell
+  # dev version
   pip install -e ".[dev]"
+  # scripts version for running examples
+  pip install -e ".[scripts]"
   ```
 
 - Before committing or pushing changes, please run the formatters from the repository root:
@@ -29,15 +32,22 @@ We try to maintain good practices of readable open source code. Therefore, if yo
 
 - To add new dependencies, run:
     ```shell
-    # prod build version
+    # prod version
     uv add <new-package>
-    # dev build version
+    # dev version
     uv add --dev <new-package>
+    # scripts version
+    uv add --group=scripts <new-package>
     ```
 
 - To run any debug scripts with the project env, run:
     ```shell
-    uv run <script.py>
+    uv run <script.py> --group=scripts
+    ```
+
+- To run Jupyter notebookes with the project env, run:
+    ```shell
+    uv run --group=scripts --with jupyter jupyter lab    
     ```
  
 ## General tips

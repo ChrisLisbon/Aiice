@@ -174,31 +174,46 @@ class TestApply:
         assert torch.is_tensor(out)
         np.testing.assert_array_equal(out.cpu().numpy(), np.array(expected))
 
+
     @pytest.mark.parametrize(
-        "tensor, i, expected_shape, expected_values",
+        "tensor, i, axes, expected_shape, expected_values",
         [
+            # 1D, axis=-1 (default)
             (
                 torch.arange(6),
                 2,
+                (-1,),
                 (3,),
                 [0, 2, 4],
             ),
+            # 2D, downsample first axis
             (
                 torch.arange(12).reshape(3, 4),
                 2,
-                (3, 2),
-                [[0, 2], [4, 6], [8, 10]],
+                (0,),
+                (2, 4),
+                [[0, 1, 2, 3], [8, 9, 10, 11]],
             ),
+            # 3D, downsample last axis
             (
                 torch.arange(24).reshape(2, 3, 4),
                 3,
+                (-1,),
                 (2, 3, 2),
                 [[[0, 3], [4, 7], [8, 11]], [[12, 15], [16, 19], [20, 23]]],
             ),
+            # 3D, downsample axes 1 and 2
+            (
+                torch.arange(24).reshape(2, 3, 4),
+                2,
+                (1, 2),
+                (2, 2, 2),
+                [[[0, 2], [8, 10]], [[12, 14], [20, 22]]],
+            ),
         ],
     )
-    def test_apply_downsample_ok(self, tensor, i, expected_shape, expected_values):
-        out = apply_downsample(tensor, i)
+    def test_apply_downsample_ok(self, tensor, i, axes, expected_shape, expected_values):
+        out = apply_downsample(tensor, i, axes=axes)
         assert torch.is_tensor(out)
         assert tuple(out.shape) == expected_shape
         np.testing.assert_array_equal(out.cpu().numpy(), np.array(expected_values))

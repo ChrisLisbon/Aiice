@@ -9,20 +9,31 @@ def apply_threshold(tensor: torch.Tensor, threshold: float = 0.5) -> torch.Tenso
     return (tensor > threshold).to(tensor.dtype)
 
 
-def apply_downsample(t: torch.Tensor, i: int) -> torch.Tensor:
+def apply_downsample(t: torch.Tensor, i: int, axes: tuple[int, ...] = (-1,)) -> torch.Tensor:
     """
-    Removes every i-th element along the last axis of the tensor.
+    Downsamples tensor t by keeping every i-th element along specified axes.
 
-    Example:
-        i=2 keeps indices [0,2,4,...]
-        i=3 keeps indices [0,3,6,...]
+    Parameters
+    ----------
+    t : torch.Tensor
+        Input tensor
+    i : int
+        Step for downsampling. Must be > 0.
+    axes : tuple of int
+        Axes along which to downsample. Negative axes are supported.
     """
     if i <= 0:
         raise ValueError("i must be > 0")
 
-    idx = torch.arange(t.shape[-1], device=t.device)
-    keep = idx % i == 0
-    return t.index_select(-1, idx[keep])
+    out = t
+    for axis in axes:
+        axis = axis if axis >= 0 else t.dim() + axis
+
+        idx = torch.arange(out.shape[axis], device=out.device)
+        keep = idx % i == 0
+        out = torch.index_select(out, axis, idx[keep])
+
+    return out
 
 
 class SlidingWindowDataset(Dataset):

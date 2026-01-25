@@ -9,8 +9,8 @@ from aiice.preprocess import apply_threshold
 
 
 def _as_tensor(y_true: Sequence, y_pred: Sequence, device=None):
-    y_true = torch.as_tensor(y_true, dtype=torch.float32, device=device)
-    y_pred = torch.as_tensor(y_pred, dtype=torch.float32, device=device)
+    y_true = torch.as_tensor(y_true, dtype=torch.float32, device=device).detach()
+    y_pred = torch.as_tensor(y_pred, dtype=torch.float32, device=device).detach()
     return y_true, y_pred
 
 
@@ -19,7 +19,7 @@ def mae(y_true: Sequence, y_pred: Sequence) -> float:
     MAE (mean absolute error) - determines absolute values range coincidence with real data.
     """
     y_true, y_pred = _as_tensor(y_true, y_pred)
-    return torch.abs(y_true - y_pred).detach().mean().item()
+    return torch.abs(y_true - y_pred).mean().item()
 
 
 def mse(y_true: Sequence, y_pred: Sequence) -> float:

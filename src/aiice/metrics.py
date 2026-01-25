@@ -19,7 +19,7 @@ def mae(y_true: Sequence, y_pred: Sequence) -> float:
     MAE (mean absolute error) - determines absolute values range coincidence with real data.
     """
     y_true, y_pred = _as_tensor(y_true, y_pred)
-    return float(torch.abs(y_true - y_pred).mean())
+    return torch.abs(y_true - y_pred).detach().mean().item()
 
 
 def mse(y_true: Sequence, y_pred: Sequence) -> float:
@@ -27,7 +27,7 @@ def mse(y_true: Sequence, y_pred: Sequence) -> float:
     MSE (mean squared error) - similar to MAE but emphasizes larger errors by squaring differences.
     """
     y_true, y_pred = _as_tensor(y_true, y_pred)
-    return float(torch.mean((y_true - y_pred) ** 2))
+    return ((y_true - y_pred) ** 2).mean().item()
 
 
 def rmse(y_true: Sequence, y_pred: Sequence) -> float:
@@ -36,7 +36,7 @@ def rmse(y_true: Sequence, y_pred: Sequence) -> float:
     but making emphasis on spatial error distribution of prediction.
     """
     y_true, y_pred = _as_tensor(y_true, y_pred)
-    return float(torch.sqrt(torch.mean((y_true - y_pred) ** 2)))
+    return torch.sqrt(((y_true - y_pred) ** 2).mean()).item()
 
 
 def psnr(y_true: Sequence, y_pred: Sequence) -> float:
@@ -50,7 +50,7 @@ def psnr(y_true: Sequence, y_pred: Sequence) -> float:
         return float("inf")
 
     max_val = torch.max(y_true)
-    return float(20 * torch.log10(max_val) - 10 * torch.log10(mse_val))
+    return (20 * torch.log10(max_val) - 10 * torch.log10(mse_val)).item()
 
 
 def bin_accuracy(y_true: Sequence, y_pred: Sequence, threshold: float = 0.5) -> float:
@@ -63,7 +63,7 @@ def bin_accuracy(y_true: Sequence, y_pred: Sequence, threshold: float = 0.5) -> 
     y_true = apply_threshold(y_true, threshold)
     y_pred = apply_threshold(y_pred, threshold)
 
-    return float((y_true == y_pred).float().mean())
+    return (y_true == y_pred).float().mean().item()
 
 
 def ssim(y_true: Sequence, y_pred: Sequence) -> float:

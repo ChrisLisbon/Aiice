@@ -38,6 +38,19 @@ class TestHfDatasetClient_get_filename_template(BaseTestHfDatasetClient):
         assert client._get_filename_template(value) == expected
 
 
+class TestHfDatasetClient_get_date_from_filename_template(BaseTestHfDatasetClient):
+
+    @pytest.mark.parametrize(
+        "value, expected",
+        [
+            ("global_series/2021/osisaf_20210601.npy", date(2021, 6, 1)),
+            ("global_series/1991/osisaf_19911212.npy", date(1991, 12, 12)),
+        ],
+    )
+    def test_ok(self, client: HfDatasetClient, value, expected):
+        assert client._get_date_from_filename_template(value) == expected
+
+
 class TestHfDatasetClient_get_filenames(BaseTestHfDatasetClient):
 
     def test_full_range(self, client: HfDatasetClient):

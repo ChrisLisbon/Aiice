@@ -9,7 +9,9 @@ def apply_threshold(tensor: torch.Tensor, threshold: float = 0.5) -> torch.Tenso
     return (tensor > threshold).to(tensor.dtype)
 
 
-def apply_downsample(t: torch.Tensor, i: int, axes: tuple[int, ...] = (-1,)) -> torch.Tensor:
+def apply_downsample(
+    t: torch.Tensor, i: int, axes: tuple[int, ...] = (-1,)
+) -> torch.Tensor:
     """
     Downsamples tensor t by keeping every i-th element along specified axes.
 

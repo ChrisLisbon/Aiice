@@ -1,11 +1,17 @@
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from datetime import date, datetime
 from io import BytesIO
+from typing import TypeAlias
 
 import numpy as np
 import torch
 
 from aiice.core.huggingface import HfDatasetClient
+
+NpArr: TypeAlias = np.ndarray
+TorchArr: TypeAlias = torch.Tensor
+NpWithIdx: TypeAlias = tuple[list[date], NpArr]
+TorchWithIdx: TypeAlias = tuple[list[date], TorchArr]
 
 
 class Loader:
@@ -95,9 +101,10 @@ class Loader:
         end: date | str | None = None,
         step: int | None = None,
         tensor_out: bool = False,
+        idx_out: bool = False,
         threads: int = 18,
         processes: int | None = None,
-    ) -> np.ndarray | torch.Tensor:
+    ) -> NpArr | TorchArr | NpWithIdx | TorchWithIdx:
         """
         Load dataset into memory. Matrices have float range values from 0 to 1.
 
@@ -111,6 +118,8 @@ class Loader:
             Step in days between files.
         tensor_out : bool
             If True, returns torch.Tensor output.
+        idx_out: bool
+            If True, returns date indexes of each matrix.
         threads : int
             Number of parallel download threads.
         processes : int, optional
@@ -129,10 +138,14 @@ class Loader:
 
         result = np.stack(arrays).astype(np.float32) / 100.0
 
-        if not tensor_out:
-            return result
+        if tensor_out:
+            result = torch.from_numpy(result)
 
-        return torch.from_numpy(result)
+        if idx_out:
+            dates = [self._hf._get_date_from_filename_template(f) for f in filenames]
+            return dates, result
+
+        return result
 
     def _convert_date(self, d: str | date) -> date:
         if isinstance(d, str):

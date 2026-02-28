@@ -71,6 +71,7 @@ class HfDatasetClient:
         """
         return self._shape
 
+    @retry_on_network_errors(retries=DEFAULT_RETRIES, backoff=DEFAULT_BACKOFF)
     def info(self, per_year: bool = False, threads: int = 24) -> dict[str, any]:
         """
         Collect dataset size statistics.
@@ -240,3 +241,12 @@ class HfDatasetClient:
 
     def _get_filename_template(self, d: date) -> str:
         return f"global_series/{d.year}/osisaf_{d.year}{d.month:02d}{d.day:02d}.npy"
+
+    def _get_date_from_filename_template(self, f: str) -> str:
+        name = f.split("/")[-1]
+        date_part = name.removeprefix("osisaf_").removesuffix(".npy")
+
+        year = int(date_part[0:4])
+        month = int(date_part[4:6])
+        day = int(date_part[6:8])
+        return date(year, month, day)

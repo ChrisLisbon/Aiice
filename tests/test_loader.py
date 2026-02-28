@@ -37,7 +37,7 @@ class TestLoader_download(BaseTestLoader):
 
         result = loader.download(
             local_dir=self.test_local_dir,
-            start=date(2020, 1, 1),
+            start="2020-01-01",
             end=date(2020, 1, 3),
             step=2,
             threads=2,
@@ -90,48 +90,72 @@ class TestLoader_get(BaseTestLoader):
         np.save(buffer, np.array([[1, 2], [3, 4]]))
         self.fake_bytes = buffer.getvalue()
 
+    @patch("aiice.loader.HfDatasetClient._get_date_from_filename_template")
     @patch("aiice.loader.HfDatasetClient.read_file")
     @patch("aiice.loader.HfDatasetClient.get_filenames")
     @pytest.mark.parametrize(
-        "tensor_out, expected_type",
+        "tensor_out, idx_out, expected_data_type",
         [
-            (False, np.ndarray),
-            (True, torch.Tensor),
+            (False, False, np.ndarray),
+            (True, False, torch.Tensor),
+            (False, True, np.ndarray),
+            (True, True, torch.Tensor),
         ],
     )
     def test_ok(
         self,
         mock_get_filenames,
         mock_read_file,
+        mock_get_date,
         tensor_out,
-        expected_type,
+        idx_out,
+        expected_data_type,
         loader: Loader,
     ):
-        mock_get_filenames.return_value = ["a.npy", "b.npy", "c.npy"]
+        filenames = ["a.npy", "b.npy", "c.npy"]
+        mock_get_filenames.return_value = filenames
 
         def fake_read(filename):
             return self.fake_bytes
 
         mock_read_file.side_effect = fake_read
 
-        result = loader.get(threads=2, step=3, tensor_out=tensor_out)
+        fake_dates = [date(2020, 1, i + 1) for i in range(len(filenames))]
+        mock_get_date.side_effect = fake_dates
 
-        assert isinstance(result, expected_type)
-        assert tuple(result.shape) == (3, 2, 2)
-
-        expected_result = np.array([[[1, 2], [3, 4]]] * 3)
-        if tensor_out:
-            np.testing.assert_array_equal(result.numpy(), expected_result)
-        else:
-            np.testing.assert_array_equal(result, expected_result)
-
-        mock_get_filenames.assert_has_calls(
-            [call(start=None, end=None, step=3)],
-            any_order=False,
+        result = loader.get(
+            start="2020-01-01",
+            threads=2,
+            step=3,
+            tensor_out=tensor_out,
+            idx_out=idx_out,
         )
-        mock_read_file.assert_has_calls(
-            [call(filename=f) for f in mock_get_filenames.return_value],
-            any_order=True,  # in higher python versions processpool order can be not deterministic
+
+        expected_array = np.array([[[1, 2], [3, 4]]] * 3, dtype=np.float32) / 100.0
+
+        if idx_out:
+            dates, data = result
+
+            assert dates == fake_dates
+            assert isinstance(data, expected_data_type)
+            assert tuple(data.shape) == (3, 2, 2)
+
+            if tensor_out:
+                np.testing.assert_array_equal(data.numpy(), expected_array)
+            else:
+                np.testing.assert_array_equal(data, expected_array)
+
+        else:
+            assert isinstance(result, expected_data_type)
+            assert tuple(result.shape) == (3, 2, 2)
+
+            if tensor_out:
+                np.testing.assert_array_equal(result.numpy(), expected_array)
+            else:
+                np.testing.assert_array_equal(result, expected_array)
+
+        mock_get_filenames.assert_called_once_with(
+            start=date(2020, 1, 1), end=None, step=3
         )
 
     @patch("aiice.loader.HfDatasetClient.read_file")

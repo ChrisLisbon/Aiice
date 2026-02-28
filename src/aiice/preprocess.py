@@ -3,7 +3,39 @@ from typing import Sequence
 import torch
 from torch.utils.data import Dataset
 
-from aiice.metrics import _apply_threshold
+
+def apply_threshold(tensor: torch.Tensor, threshold: float = 0.5) -> torch.Tensor:
+    "Binarize tensor with a threshold"
+    return (tensor > threshold).to(tensor.dtype)
+
+
+def apply_downsample(
+    t: torch.Tensor, i: int, axes: tuple[int, ...] = (-1,)
+) -> torch.Tensor:
+    """
+    Downsamples tensor t by keeping every i-th element along specified axes.
+
+    Parameters
+    ----------
+    t : torch.Tensor
+        Input tensor
+    i : int
+        Step for downsampling. Must be > 0.
+    axes : tuple of int
+        Axes along which to downsample. Negative axes are supported.
+    """
+    if i <= 0:
+        raise ValueError("i must be > 0")
+
+    out = t
+    for axis in axes:
+        axis = axis if axis >= 0 else t.dim() + axis
+
+        idx = torch.arange(out.shape[axis], device=out.device)
+        keep = idx % i == 0
+        out = torch.index_select(out, axis, idx[keep])
+
+    return out
 
 
 class SlidingWindowDataset(Dataset):
@@ -77,7 +109,13 @@ class SlidingWindowDataset(Dataset):
     def __len__(self):
         return self._length
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int):
+        if not isinstance(idx, int):
+            raise TypeError("index must be int")
+
+        if idx < 0 or idx >= self._length:
+            raise IndexError("index out of range")
+
         x = self._data[idx : idx + self._pre_history_len]
         y = self._data[
             idx
@@ -87,7 +125,7 @@ class SlidingWindowDataset(Dataset):
         ]
 
         if isinstance(self._threshold, float):
-            y = _apply_threshold(y, self._threshold)
-            x = _apply_threshold(x, self._threshold) if self._x_binarize else x
+            y = apply_threshold(y, self._threshold)
+            x = apply_threshold(x, self._threshold) if self._x_binarize else x
 
         return x, y

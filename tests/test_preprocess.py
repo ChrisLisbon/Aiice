@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import torch
 
-from aiice.preprocess import SlidingWindowDataset
+from aiice.preprocess import SlidingWindowDataset, apply_downsample, apply_threshold
 
 
 class TestSlidingWindowDataset:
@@ -127,3 +127,101 @@ class TestSlidingWindowDataset:
 
         np.testing.assert_array_equal(x0.numpy(), np.array(expected_x0))
         np.testing.assert_array_equal(y0.numpy(), np.array(expected_y0))
+
+    def test_getitem_non_int_index_raises(self):
+        dataset = SlidingWindowDataset(
+            data=[1, 2, 3, 4], pre_history_len=2, forecast_len=1
+        )
+        with pytest.raises(TypeError) as exc:
+            _ = dataset["not_an_int"]
+        assert "index must be int" in str(exc.value)
+
+    @pytest.mark.parametrize("idx", [-1, 2, 3, 10])
+    def test_getitem_index_out_of_range_raises(self, idx):
+        # T=4, pre_history_len=2, forecast_len=1 => len=2, valid indices = 0,1
+        dataset = SlidingWindowDataset(
+            data=[1, 2, 3, 4], pre_history_len=2, forecast_len=1
+        )
+        with pytest.raises(IndexError) as exc:
+            _ = dataset[idx]
+        assert "index out of range" in str(exc.value)
+
+
+class TestApply:
+
+    @pytest.mark.parametrize(
+        "tensor, threshold, expected",
+        [
+            (
+                torch.tensor([0.2, 0.6, 0.5]),
+                0.5,
+                [0, 1, 0],
+            ),
+            (
+                torch.tensor([[0.1, 0.9], [0.7, 0.3]]),
+                0.4,
+                [[0, 1], [1, 0]],
+            ),
+            (
+                torch.tensor([1.0, 2.0, 3.0]),
+                2.5,
+                [0, 0, 1],
+            ),
+        ],
+    )
+    def test_apply_threshold(self, tensor, threshold, expected):
+        out = apply_threshold(tensor, threshold)
+        assert torch.is_tensor(out)
+        np.testing.assert_array_equal(out.cpu().numpy(), np.array(expected))
+
+    @pytest.mark.parametrize(
+        "tensor, i, axes, expected_shape, expected_values",
+        [
+            # 1D, axis=-1 (default)
+            (
+                torch.arange(6),
+                2,
+                (-1,),
+                (3,),
+                [0, 2, 4],
+            ),
+            # 2D, downsample first axis
+            (
+                torch.arange(12).reshape(3, 4),
+                2,
+                (0,),
+                (2, 4),
+                [[0, 1, 2, 3], [8, 9, 10, 11]],
+            ),
+            # 3D, downsample last axis
+            (
+                torch.arange(24).reshape(2, 3, 4),
+                3,
+                (-1,),
+                (2, 3, 2),
+                [[[0, 3], [4, 7], [8, 11]], [[12, 15], [16, 19], [20, 23]]],
+            ),
+            # 3D, downsample axes 1 and 2
+            (
+                torch.arange(24).reshape(2, 3, 4),
+                2,
+                (1, 2),
+                (2, 2, 2),
+                [[[0, 2], [8, 10]], [[12, 14], [20, 22]]],
+            ),
+        ],
+    )
+    def test_apply_downsample_ok(
+        self, tensor, i, axes, expected_shape, expected_values
+    ):
+        out = apply_downsample(tensor, i, axes=axes)
+        assert torch.is_tensor(out)
+        assert tuple(out.shape) == expected_shape
+        np.testing.assert_array_equal(out.cpu().numpy(), np.array(expected_values))
+
+    @pytest.mark.parametrize("i", [0, -1])
+    def test_apply_downsample_raise(self, i):
+        t = torch.arange(10)
+        with pytest.raises(ValueError) as err:
+            apply_downsample(t, i)
+        assert "i must be > 0" in str(err.value)

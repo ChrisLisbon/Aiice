@@ -1,18 +1,28 @@
-import os
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from datetime import date
+from datetime import date, datetime
 from io import BytesIO
+from typing import TypeAlias
 
 import numpy as np
 import torch
 
 from aiice.core.huggingface import HfDatasetClient
 
+NpArr: TypeAlias = np.ndarray
+TorchArr: TypeAlias = torch.Tensor
+NpWithIdx: TypeAlias = tuple[list[date], NpArr]
+TorchWithIdx: TypeAlias = tuple[list[date], TorchArr]
+
 
 class Loader:
     def __init__(self):
         """
         Dataset Loader with a Hugging Face dataset client.
+
+        Downloading a large number of files in parallel may lead to
+        request timeouts or temporary server-side errors from
+        Hugging Face. If this happens, reduce the number of threads
+        or split the download into smaller date ranges.
         """
         self._hf = HfDatasetClient()
 
@@ -51,27 +61,31 @@ class Loader:
     def download(
         self,
         local_dir: str,
-        start: date | None = None,
-        end: date | None = None,
-        step: date | None = None,
-        threads: int = 32,
+        start: date | str | None = None,
+        end: date | str | None = None,
+        step: int | None = None,
+        threads: int = 24,
     ) -> list[str | None]:
         """
         Download dataset files to a local directory in parallel.
+        Raw numpy matrices have range values from 0 to 100.
 
         Parameters
         ----------
         local_dir : str
             Directory to save files.
-        start : date, optional
+        start : date, str, optional
             Start date for files.
-        end : date, optional
+        end : date, str, optional
             End date for files.
         step : int, optional
             Step in days between files.
         threads : int
             Number of parallel download threads.
         """
+        start = self._convert_date(start)
+        end = self._convert_date(end)
+
         filenames = self._hf.get_filenames(start=start, end=end, step=step)
         with ThreadPoolExecutor(max_workers=threads) as pool:
             return list(
@@ -83,32 +97,38 @@ class Loader:
 
     def get(
         self,
-        start: date | None = None,
-        end: date | None = None,
+        start: date | str | None = None,
+        end: date | str | None = None,
         step: int | None = None,
         tensor_out: bool = False,
+        idx_out: bool = False,
         threads: int = 18,
         processes: int | None = None,
-    ) -> np.ndarray | torch.Tensor:
+    ) -> NpArr | TorchArr | NpWithIdx | TorchWithIdx:
         """
-        Load dataset into memory.
+        Load dataset into memory. Matrices have float range values from 0 to 1.
 
         Parameters
         ----------
-        start : date, optional
+        start : date, str, optional
             Start date for files.
-        end : date, optional
+        end : date, str, optional
             End date for files.
         step : int, optional
             Step in days between files.
         tensor_out : bool
             If True, returns torch.Tensor output.
+        idx_out: bool
+            If True, returns date indexes of each matrix.
         threads : int
             Number of parallel download threads.
         processes : int, optional
             Number of worker processes used for decoding bytes into numpy matrices.
             If None, uses as many processes as there are CPU cores.
         """
+        start = self._convert_date(start)
+        end = self._convert_date(end)
+
         filenames = self._hf.get_filenames(start=start, end=end, step=step)
         with ThreadPoolExecutor(max_workers=threads) as tpool:
             raw_files = list(tpool.map(self._get_raw_file, filenames))
@@ -116,12 +136,21 @@ class Loader:
         with ProcessPoolExecutor(max_workers=processes) as ppool:
             arrays = list(ppool.map(self._decode_raw_file, raw_files))
 
-        result = np.stack(arrays)
+        result = np.stack(arrays).astype(np.float32) / 100.0
 
-        if not tensor_out:
-            return result
+        if tensor_out:
+            result = torch.from_numpy(result)
 
-        return torch.from_numpy(result)
+        if idx_out:
+            dates = [self._hf._get_date_from_filename_template(f) for f in filenames]
+            return dates, result
+
+        return result
+
+    def _convert_date(self, d: str | date) -> date:
+        if isinstance(d, str):
+            return datetime.strptime(d, "%Y-%m-%d").date()
+        return d
 
     def _get_raw_file(self, filename: str) -> bytes:
         raw = self._hf.read_file(filename=filename)

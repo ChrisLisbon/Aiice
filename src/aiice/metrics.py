@@ -4,7 +4,20 @@ from typing import Sequence
 import pytorch_msssim
 import torch
 
-from aiice.constants import DEFAULT_SSIM_KERNEL_WINDOW_SIZE
+from aiice.constants import (
+    BIN_ACCURACY_METRIC,
+    COUNT_STAT,
+    DEFAULT_SSIM_KERNEL_WINDOW_SIZE,
+    LAST_STAT,
+    MAE_METRIC,
+    MAX_STAT,
+    MEAN_STAT,
+    MIN_STAT,
+    MSE_METRIC,
+    PSNR_METRIC,
+    RMSE_METRIC,
+    SSIM_METRIC,
+)
 from aiice.preprocess import apply_threshold
 
 
@@ -103,7 +116,14 @@ class Evaluator:
         Whether to accumulate metric values across multiple ``eval`` calls.
     """
 
-    _default_metrics: list[str] = ["mae", "mse", "rmse", "psnr", "bin_accuracy", "ssim"]
+    _metrics_registry: dict[str, MetricFn] = {
+        MAE_METRIC: mae,
+        MSE_METRIC: mse,
+        RMSE_METRIC: rmse,
+        PSNR_METRIC: psnr,
+        BIN_ACCURACY_METRIC: bin_accuracy,
+        SSIM_METRIC: ssim,
+    }
 
     def __init__(
         self,
@@ -111,7 +131,7 @@ class Evaluator:
         accumulate: bool = True,
     ):
         if metrics is None:
-            self._metrics = self._init_metrics(self._default_metrics)
+            self._metrics = self._metrics_registry
         elif isinstance(metrics, list):
             self._metrics = self._init_metrics(metrics)
         else:
@@ -121,22 +141,13 @@ class Evaluator:
         self._report: dict[str, list[float]] = {k: [] for k in self._metrics}
 
     def _init_metrics(self, metrics: list[str]) -> dict[str, MetricFn]:
-        registry: dict[str, MetricFn] = {
-            "mae": mae,
-            "mse": mse,
-            "rmse": rmse,
-            "psnr": psnr,
-            "bin_accuracy": bin_accuracy,
-            "ssim": ssim,
-        }
-
-        result = {}
+        result: dict[str, MetricFn] = {}
         for name in metrics:
             try:
-                result[name] = registry[name]
+                result[name] = self._metrics_registry[name]
             except KeyError:
                 raise ValueError(
-                    f"Unknown metric '{name}', choose from {list(registry)}"
+                    f"Unknown metric '{name}', choose from {list(self._metrics_registry.keys())}"
                 )
         return result
 
@@ -162,16 +173,16 @@ class Evaluator:
         """
         Return aggregated statistics for all evaluated metrics.
         """
-        summary = {}
+        summary: dict[str, dict[str, float]] = {}
         for name, values in self._report.items():
             if not values:
                 continue
 
             summary[name] = {
-                "mean": sum(values) / len(values),
-                "last": values[-1],
-                "count": len(values),
-                "min": min(values),
-                "max": max(values),
+                MEAN_STAT: sum(values) / len(values),
+                LAST_STAT: values[-1],
+                COUNT_STAT: len(values),
+                MIN_STAT: min(values),
+                MAX_STAT: max(values),
             }
         return summary

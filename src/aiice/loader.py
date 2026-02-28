@@ -8,22 +8,21 @@ import torch
 
 from aiice.core.huggingface import HfDatasetClient
 
-NpArr: TypeAlias = np.ndarray
-TorchArr: TypeAlias = torch.Tensor
-NpWithIdx: TypeAlias = tuple[list[date], NpArr]
-TorchWithIdx: TypeAlias = tuple[list[date], TorchArr]
+NpWithIdx: TypeAlias = tuple[list[date], np.ndarray]
+TorchWithIdx: TypeAlias = tuple[list[date], torch.Tensor]
 
 
 class Loader:
-    def __init__(self):
-        """
-        Dataset Loader with a Hugging Face dataset client.
+    """
+    Dataset Loader with a Hugging Face dataset client.
 
-        Downloading a large number of files in parallel may lead to
-        request timeouts or temporary server-side errors from
-        Hugging Face. If this happens, reduce the number of threads
-        or split the download into smaller date ranges.
-        """
+    Downloading a large number of files in parallel may lead to
+    request timeouts or temporary server-side errors from
+    Hugging Face. If this happens, reduce the number of threads
+    or split the download into smaller date ranges.
+    """
+
+    def __init__(self):
         self._hf = HfDatasetClient()
 
     @property
@@ -104,7 +103,7 @@ class Loader:
         idx_out: bool = False,
         threads: int = 18,
         processes: int | None = None,
-    ) -> NpArr | TorchArr | NpWithIdx | TorchWithIdx:
+    ) -> np.ndarray | torch.Tensor | NpWithIdx | TorchWithIdx:
         """
         Load dataset into memory. Matrices have float range values from 0 to 1.
 
@@ -136,7 +135,7 @@ class Loader:
         with ProcessPoolExecutor(max_workers=processes) as ppool:
             arrays = list(ppool.map(self._decode_raw_file, raw_files))
 
-        result = np.stack(arrays).astype(np.float32) / 100.0
+        result: np.ndarray | torch.Tensor = np.stack(arrays).astype(np.float32) / 100.0
 
         if tensor_out:
             result = torch.from_numpy(result)

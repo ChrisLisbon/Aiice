@@ -7,7 +7,7 @@ This project uses [uv](https://github.com/astral-sh/uv) for Python version, depe
 
 We try to maintain good practices of readable open source code. Therefore, if you want to participate in the development and open your pool request, pay attention to the following points:
 
-- To install the project together with all development dependencies, run:
+- To install the project with all development dependencies, run:
     ```shell
     uv sync --locked --all-extras --dev --group=scripts
     ```
@@ -20,7 +20,7 @@ We try to maintain good practices of readable open source code. Therefore, if yo
   pip install -e ".[scripts]"
   ```
 
-- Before committing or pushing changes, please run the formatters from the repository root:
+- Before committing or pushing changes **run the formatters** from the repository root:
     ```shell
     uvx isort src tests && uvx black src tests
     ```
@@ -39,7 +39,8 @@ We try to maintain good practices of readable open source code. Therefore, if yo
     # scripts version
     uv add --group=scripts <new-package>
     ```
-- To buid and run doc locally, run:
+
+- To buid and run docs locally, run:
     ```shell
     pdoc --math -d google --no-include-undocumented -t .github/doc/ aiice
     ```
@@ -49,7 +50,7 @@ We try to maintain good practices of readable open source code. Therefore, if yo
     uv run <script.py> --group=scripts
     ```
 
-- To run Jupyter notebookes with the project env, run:
+- To run Jupyter notebooks with the project env, run:
     ```shell
     uv run --group=scripts --with jupyter jupyter lab    
     ```

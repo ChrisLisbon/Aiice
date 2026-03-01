@@ -15,3 +15,29 @@ The simplest way to install framework with `pip`:
 ```shell
 pip install aiice
 ```
+
+## Quickstart
+
+The AIICE class provides a simple interface for loading Arctic ice data, preparing datasets, and benchmarking PyTorch models:
+
+```python
+from aiice import AIICE
+
+# Initialize AIICE with a sliding window of past 30 days and forecast of 7 days
+aiice = AIICE(
+    pre_history_len=30,
+    forecast_len=7,
+    batch_size=32,
+    start="2022-01-01",
+    end="2022-12-31"
+)
+
+# Define your PyTorch model
+model = MyModel()
+
+# Run benchmarking to compute metrics on the dataset
+report = aiice.bench(model)
+print(report)
+```
+
+Check [package doc]() and see more [usage examples](./scripts/examples)

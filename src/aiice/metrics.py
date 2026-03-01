@@ -148,6 +148,10 @@ class Evaluator:
                 )
         return result
 
+    @property
+    def metrics(self) -> list[str]:
+        return list(self._metrics.keys())
+
     def eval(self, y_true: Sequence, y_pred: Sequence) -> dict[str, float]:
         """
         Evaluate all metrics on a single batch or sample and updates the internal

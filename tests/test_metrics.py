@@ -100,7 +100,7 @@ class TestEvaluator:
     def test_default_metrics_initialized(self):
         ev = Evaluator()
 
-        assert set(ev._metrics.keys()) == {
+        assert set(ev.metrics) == {
             "mae",
             "mse",
             "rmse",

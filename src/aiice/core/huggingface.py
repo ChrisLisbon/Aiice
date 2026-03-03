@@ -3,13 +3,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, timedelta
 from functools import lru_cache
 from io import BytesIO
-from pathlib import Path
 
 import requests
 from huggingface_hub import HfApi
 from huggingface_hub.constants import DEFAULT_REQUEST_TIMEOUT
 from huggingface_hub.errors import RemoteEntryNotFoundError
 from huggingface_hub.file_download import http_get
+from huggingface_hub.utils import build_hf_headers
 
 from aiice.constants import (
     BYTES_IN_MB,
@@ -31,7 +31,7 @@ from aiice.constants import (
     MIN_DATASET_START,
     YEAR_STATS_CACHE_SIZE,
 )
-from aiice.core.utils import retry_on_network_errors
+from aiice.core.utils import _get_filename_template, retry_on_network_errors
 
 
 class HfDatasetClient:
@@ -42,6 +42,7 @@ class HfDatasetClient:
     def __init__(self):
         self._api_base_url = HF_BASE_URL
         self._api = HfApi(endpoint=self._api_base_url, library_name=HF_PACKAGE_NAME)
+        self._api_headers = build_hf_headers(library_name=HF_PACKAGE_NAME)
 
         self._dataset_repo = HF_DATASET_REPO
         self._dataset_repo_type = HF_REPO_TYPE
@@ -155,7 +156,7 @@ class HfDatasetClient:
         delta = timedelta(days=step or 1)
 
         while current <= end:
-            filenames.append(self._get_filename_template(current))
+            filenames.append(_get_filename_template(current))
             current += delta
 
         return filenames
@@ -175,6 +176,7 @@ class HfDatasetClient:
                 url=url,
                 temp_file=buffer,
                 displayed_filename=filename,
+                headers=self._api_headers,
             )
             return buffer.getvalue()
 
@@ -182,8 +184,8 @@ class HfDatasetClient:
         except RemoteEntryNotFoundError:
             return None
 
-        except requests.RequestException as e:
-            raise RuntimeError(f"Network error {url}") from e
+        except Exception as e:
+            raise RuntimeError(f"Failed to get file {filename}") from e
 
     @retry_on_network_errors(retries=DEFAULT_RETRIES, backoff=DEFAULT_BACKOFF)
     def download_file(self, filename: str, local_dir: str) -> str | None:
@@ -213,7 +215,9 @@ class HfDatasetClient:
     def _fetch_year_stats(self, year: int) -> tuple[int, int, int]:
         url = f"{self._api_base_url}/api/datasets/{self._dataset_repo}/tree/main/global_series/{year}"
 
-        resp = requests.get(url, timeout=DEFAULT_REQUEST_TIMEOUT)
+        resp = requests.get(
+            url, timeout=DEFAULT_REQUEST_TIMEOUT, headers=self._api_headers
+        )
         resp.raise_for_status()
 
         files, size = 0, 0
@@ -225,17 +229,3 @@ class HfDatasetClient:
             size += item.get("size", 0)
 
         return year, files, size
-
-    def _get_filename_template(self, d: date) -> str:
-        # filename looks like: global_series/1999/osisaf_19991101.npy
-        return f"global_series/{d.year}/osisaf_{d.year}{d.month:02d}{d.day:02d}.npy"
-
-    def _get_date_from_filename_template(self, f: str) -> date:
-        # filename looks like: global_series/1999/osisaf_19991101.npy
-        name = Path(f).name
-        date_part = name.removeprefix("osisaf_").removesuffix(".npy")
-
-        year = int(date_part[0:4])
-        month = int(date_part[4:6])
-        day = int(date_part[6:8])
-        return date(year, month, day)

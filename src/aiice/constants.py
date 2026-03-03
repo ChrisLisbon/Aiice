@@ -13,6 +13,13 @@ MIN_DATASET_START: date = date(1980, 1, 1)
 MAX_DATASET_END: date = date(2025, 7, 1)
 DATASET_SHAPE: tuple[int, int] = (432, 432)
 
+MASK_SEA_DATA_PATH: str = "mask_data/seas_mask_IHO.npy"
+MASK_SEA_IDX_PATH: str = "mask_data/arctic_seas_inds.csv"
+
+MASK_SEA_NAME_ID: str = "id"
+MASK_SEA_NAME_COLUMN: str = "name"
+MASK_SEA_DATA_MAX_VALUE: int = 999
+
 BYTES_IN_MB: int = 1024 * 1024
 
 YEAR_STATS_CACHE_SIZE: int = 64

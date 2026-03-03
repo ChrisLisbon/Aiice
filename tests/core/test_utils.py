@@ -1,9 +1,14 @@
+from datetime import date
 from unittest.mock import Mock
 
 import httpx
 import pytest
 
-from aiice.core.utils import retry_on_network_errors
+from aiice.core.utils import (
+    _get_date_from_filename_template,
+    _get_filename_template,
+    retry_on_network_errors,
+)
 
 
 @pytest.fixture
@@ -34,3 +39,27 @@ class TestRetryOnNetworkErrors:
         result = decorated()
         assert result == "ok"
         assert state["count"] == 2
+
+
+class TestHfDatasetClient_get_filename_template:
+    @pytest.mark.parametrize(
+        "value, expected",
+        [
+            (date(2021, 6, 1), "global_series/2021/osisaf_20210601.npy"),
+            (date(1991, 12, 12), "global_series/1991/osisaf_19911212.npy"),
+        ],
+    )
+    def test_ok(self, value, expected):
+        assert _get_filename_template(value) == expected
+
+
+class TestHfDatasetClient_get_date_from_filename_template:
+    @pytest.mark.parametrize(
+        "value, expected",
+        [
+            ("global_series/2021/osisaf_20210601.npy", date(2021, 6, 1)),
+            ("global_series/1991/osisaf_19911212.npy", date(1991, 12, 12)),
+        ],
+    )
+    def test_ok(self, value, expected):
+        assert _get_date_from_filename_template(value) == expected

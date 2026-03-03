@@ -50,6 +50,10 @@ class SlidingWindowDataset(Dataset):
             and remaining dimensions represent features or channels.
         pre_history_len (int): Number of time steps in each input window (X).
         forecast_len (int): Number of time steps in each output window (Y).
+        idx (Sequence | None): Optional sequence of any indeces corresponding
+            to each time step in `data`. Must have the same length as the time dimension `T`.
+            If provided, `__getitem__` returns a tuple `(id, X, Y)` containing the
+            corresponding timestamps for the selected window, otherwise it returns only `(X, Y)`.
         threshold (float | None, optional): If provided, binarizes the target tensor Y using this threshold.
             Values strictly greater than the threshold are set to 1, and values less than or equal to
             the threshold are set to 0. Defaults to None.
@@ -64,12 +68,15 @@ class SlidingWindowDataset(Dataset):
         data: Sequence,
         pre_history_len: int,
         forecast_len: int,
+        idx: Sequence | None = None,
         threshold: float | None = None,
         x_binarize: bool = False,
         device: str | None = None,
         dtype: torch.dtype = torch.float32,
     ):
         self._data = torch.as_tensor(data, dtype=dtype, device=device)
+        self._indices = idx
+
         self._threshold = threshold
         self._x_binarize = x_binarize
 
@@ -80,6 +87,11 @@ class SlidingWindowDataset(Dataset):
         self._forecast_len = forecast_len
 
         self._T = self._data.shape[0]
+        if self._indices is not None and self._T != len(self._indices):
+            raise ValueError(
+                f"Data length (got {self._T}) should be equal to indices length (got {len(self._indices)})"
+            )
+
         self._length = self._T - pre_history_len - forecast_len + 1
 
         if self._length <= 0:
@@ -108,5 +120,11 @@ class SlidingWindowDataset(Dataset):
         if isinstance(self._threshold, float):
             y = apply_threshold(y, self._threshold)
             x = apply_threshold(x, self._threshold) if self._x_binarize else x
+
+        if self._indices is not None:
+            idx_slice = self._indices[
+                idx : idx + self._pre_history_len + self._forecast_len
+            ]
+            return idx_slice, x, y
 
         return x, y

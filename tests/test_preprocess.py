@@ -112,7 +112,7 @@ class TestSlidingWindowDataset:
             ),
         ],
     )
-    def test_threshold_binarize_ok(
+    def test_ok_threshold_binarize(
         self, threshold, x_binarize, expected_x0, expected_y0
     ):
         dataset = SlidingWindowDataset(
@@ -136,15 +136,79 @@ class TestSlidingWindowDataset:
             _ = dataset["not_an_int"]
         assert "index must be int" in str(exc.value)
 
-    @pytest.mark.parametrize("idx", [-1, 2, 3, 10])
-    def test_getitem_index_out_of_range_raises(self, idx):
+    @pytest.mark.parametrize("id", [-1, 2, 3, 10])
+    def test_getitem_index_out_of_range_raises(self, id):
         # T=4, pre_history_len=2, forecast_len=1 => len=2, valid indices = 0,1
         dataset = SlidingWindowDataset(
             data=[1, 2, 3, 4], pre_history_len=2, forecast_len=1
         )
         with pytest.raises(IndexError) as exc:
-            _ = dataset[idx]
-        assert "index out of range" in str(exc.value)
+            _ = dataset[id]
+            assert "index out of range" in str(exc.value)
+
+    @pytest.mark.parametrize(
+        "data, idx, pre, forecast, expected_idx0, expected_x0, expected_y0",
+        [
+            (
+                [1, 2, 3, 4, 5],
+                ["a", "b", "c", "d", "e"],
+                2,
+                2,
+                ["a", "b", "c", "d"],
+                [[1], [2]],
+                [[3], [4]],
+            ),
+            # 2d time series with numeric indices
+            (
+                [[1, 10], [2, 20], [3, 30], [4, 40]],
+                [100, 101, 102, 103],
+                2,
+                1,
+                [100, 101, 102],
+                [[1, 10], [2, 20]],
+                [[3, 30]],
+            ),
+        ],
+    )
+    def test_ok_idx(
+        self, data, idx, pre, forecast, expected_idx0, expected_x0, expected_y0
+    ):
+        dataset = SlidingWindowDataset(
+            data=data,
+            pre_history_len=pre,
+            forecast_len=forecast,
+            idx=idx,
+        )
+
+        idx_slice, x0, y0 = dataset[0]
+
+        assert idx_slice == expected_idx0
+
+        np.testing.assert_array_equal(x0.numpy(), np.array(expected_x0))
+        np.testing.assert_array_equal(y0.numpy(), np.array(expected_y0))
+
+    @pytest.mark.parametrize(
+        "data, idx",
+        [
+            (
+                [-1, 2, 3, 10],
+                [1, 2, 3],
+            ),
+            (
+                [[1, 10], [2, 20]],
+                ["a"],
+            ),
+        ],
+    )
+    def test_idx_length_vs_data_length_raises(self, data, idx):
+        with pytest.raises(ValueError) as exc:
+            _ = SlidingWindowDataset(
+                data=data, idx=idx, pre_history_len=2, forecast_len=1
+            )
+            assert (
+                f"Data length (got {len(data)}) should be equal to indices length (got {len(idx)})"
+                in str(exc.value)
+            )
 
 
 class TestApply:

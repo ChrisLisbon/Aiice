@@ -34,12 +34,12 @@ def retry_on_network_errors(
     return decorator
 
 
-def _get_filename_template(d: date) -> str:
+def get_filename_template(d: date) -> str:
     # filename looks like: global_series/1999/osisaf_19991101.npy
     return f"global_series/{d.year}/osisaf_{d.year}{d.month:02d}{d.day:02d}.npy"
 
 
-def _get_date_from_filename_template(f: str) -> date:
+def get_date_from_filename_template(f: str) -> date:
     # filename looks like: global_series/1999/osisaf_19991101.npy
     name = Path(f).name
     date_part = name.removeprefix("osisaf_").removesuffix(".npy")

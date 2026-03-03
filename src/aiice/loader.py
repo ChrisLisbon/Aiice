@@ -18,7 +18,7 @@ from aiice.constants import (
     MASK_SEA_NAME_ID,
 )
 from aiice.core.huggingface import HfDatasetClient
-from aiice.core.utils import _get_date_from_filename_template
+from aiice.core.utils import get_date_from_filename_template
 
 NpWithIdx: TypeAlias = tuple[list[date], np.ndarray]
 TorchWithIdx: TypeAlias = tuple[list[date], torch.Tensor]
@@ -165,7 +165,7 @@ class Loader:
             result = torch.from_numpy(result)
 
         if idx_out:
-            dates = [_get_date_from_filename_template(f) for f in filenames]
+            dates = [get_date_from_filename_template(f) for f in filenames]
             return dates, result
 
         return result

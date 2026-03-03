@@ -17,7 +17,7 @@ from aiice.constants import (
     KEY_SIZE_MB,
 )
 from aiice.core.huggingface import HfDatasetClient
-from aiice.core.utils import _get_date_from_filename_template, _get_filename_template
+from aiice.core.utils import get_date_from_filename_template, get_filename_template
 
 
 class BaseTestHfDatasetClient:
@@ -32,52 +32,52 @@ class TestHfDatasetClient_get_filenames(BaseTestHfDatasetClient):
         expected_len = (client.dataset_end - client.dataset_start).days + 1
 
         assert len(files) == expected_len
-        assert files[0] == _get_filename_template(client.dataset_start)
-        assert files[-1] == _get_filename_template(client.dataset_end)
+        assert files[0] == get_filename_template(client.dataset_start)
+        assert files[-1] == get_filename_template(client.dataset_end)
 
     def test_start_only(self, client: HfDatasetClient):
         start = client.dataset_start + timedelta(days=10)
         files = client.get_filenames(start=start)
 
-        assert files[0] == _get_filename_template(start)
-        assert files[-1] == _get_filename_template(client.dataset_end)
+        assert files[0] == get_filename_template(start)
+        assert files[-1] == get_filename_template(client.dataset_end)
 
     def test_end_only(self, client: HfDatasetClient):
         end = client.dataset_start + timedelta(days=10)
         files = client.get_filenames(end=end)
 
-        assert files[0] == _get_filename_template(client.dataset_start)
-        assert files[-1] == _get_filename_template(end)
+        assert files[0] == get_filename_template(client.dataset_start)
+        assert files[-1] == get_filename_template(end)
 
     def test_start_and_end(self, client: HfDatasetClient):
         start, end = date(2020, 1, 1), date(2020, 1, 5)
         files = client.get_filenames(start=start, end=end)
 
         assert len(files) == 5
-        assert files[0] == _get_filename_template(start)
-        assert files[-1] == _get_filename_template(end)
+        assert files[0] == get_filename_template(start)
+        assert files[-1] == get_filename_template(end)
 
     def test_step(self, client: HfDatasetClient):
         start, end = date(2020, 1, 30), date(2020, 2, 5)
         files = client.get_filenames(start=start, end=end, step=3)
 
         assert len(files) == 3
-        assert files[0] == _get_filename_template(start)
-        assert files[1] == _get_filename_template(date(2020, 2, 2))
-        assert files[-1] == _get_filename_template(end)
+        assert files[0] == get_filename_template(start)
+        assert files[1] == get_filename_template(date(2020, 2, 2))
+        assert files[-1] == get_filename_template(end)
 
     def test_single_day_range(self, client: HfDatasetClient):
         day = date(2021, 6, 15)
         files = client.get_filenames(start=day, end=day)
 
-        assert files == [_get_filename_template(day)]
+        assert files == [get_filename_template(day)]
 
     def test_start_or_end_equals_defaults(self, client: HfDatasetClient):
         files = client.get_filenames(start=client.dataset_start)
-        assert files[0] == _get_filename_template(client.dataset_start)
+        assert files[0] == get_filename_template(client.dataset_start)
 
         files = client.get_filenames(end=client.dataset_end)
-        assert files[-1] == _get_filename_template(client.dataset_end)
+        assert files[-1] == get_filename_template(client.dataset_end)
 
     def test_start_before_dataset_start_raises(self, client: HfDatasetClient):
         with pytest.raises(ValueError) as err:

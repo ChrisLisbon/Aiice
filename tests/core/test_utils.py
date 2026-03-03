@@ -5,8 +5,8 @@ import httpx
 import pytest
 
 from aiice.core.utils import (
-    _get_date_from_filename_template,
-    _get_filename_template,
+    get_date_from_filename_template,
+    get_filename_template,
     retry_on_network_errors,
 )
 
@@ -50,7 +50,7 @@ class TestHfDatasetClient_get_filename_template:
         ],
     )
     def test_ok(self, value, expected):
-        assert _get_filename_template(value) == expected
+        assert get_filename_template(value) == expected
 
 
 class TestHfDatasetClient_get_date_from_filename_template:
@@ -62,4 +62,4 @@ class TestHfDatasetClient_get_date_from_filename_template:
         ],
     )
     def test_ok(self, value, expected):
-        assert _get_date_from_filename_template(value) == expected
+        assert get_date_from_filename_template(value) == expected

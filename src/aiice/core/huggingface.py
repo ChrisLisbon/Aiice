@@ -31,7 +31,7 @@ from aiice.constants import (
     MIN_DATASET_START,
     YEAR_STATS_CACHE_SIZE,
 )
-from aiice.core.utils import _get_filename_template, retry_on_network_errors
+from aiice.core.utils import get_filename_template, retry_on_network_errors
 
 
 class HfDatasetClient:
@@ -156,7 +156,7 @@ class HfDatasetClient:
         delta = timedelta(days=step or 1)
 
         while current <= end:
-            filenames.append(_get_filename_template(current))
+            filenames.append(get_filename_template(current))
             current += delta
 
         return filenames

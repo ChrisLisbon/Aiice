@@ -21,7 +21,7 @@ def run(
     val_dataloader: DataLoader,
     device: str,
 ):
-    experiment_path = f"{cfg.output_path}/conv3d"
+    experiment_path = f"{cfg.output_path}/conv2d"
     if sea is not None:
         experiment_path = f"{experiment_path}/{sea}"
     os.makedirs(experiment_path, exist_ok=True)
